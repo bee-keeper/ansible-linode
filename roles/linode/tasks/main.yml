@@ -1,0 +1,66 @@
+---
+
+- name: Set the hostname
+  hostname: name={{ hostname }}
+
+- name: Update /etc/hosts to reflect new hostname
+  lineinfile: >
+      dest='/etc/hosts'
+      regexp='^127.0.1.1.+$' backrefs=yes
+      line='127.0.1.1       {{ hostname }}'
+
+- name: Set timezone variables
+  copy: content='Europe/London'
+        dest=/etc/timezone
+        owner=root
+        group=root
+        mode=0644
+        backup=yes
+  notify:
+    - update timezone
+
+- name: Create an ssh user
+  user: name={{ ssh_user }} password={{ ssh_user_password_hash }} state=present shell="/bin/bash"
+
+- name: Add ssh user to sudo group
+  user: name={{ ssh_user }} group=sudo state=present
+
+- name: Upload local public key to user's .ssh directory
+  authorized_key: user='{{ ssh_user }}' key='{{ lookup("file", "~/.ssh/id_rsa.pub") }}'
+
+- name: Create rules for iptables
+  template: src=iptables.j2
+            dest=/etc/iptables.firewall.rules
+            owner=root
+            group=root
+            mode=0744
+
+- name: Activate iptable rules
+  shell: iptables -F && iptables-restore < /etc/iptables.firewall.rules
+
+- name: Ensure rules are activated on boot
+  template: src=firewall.j2
+            dest=/etc/network/if-pre-up.d/firewall
+            owner=root
+            group=root
+            mode=0744
+
+- name: Remove root login
+  lineinfile: >
+      dest='/etc/ssh/sshd_config'
+      regexp='^PermitRootLogin.+$' backrefs=yes
+      line='PermitRootLogin no'
+      backup=yes
+
+- name: Remove login with password
+  lineinfile: >
+      dest='/etc/ssh/sshd_config'
+      regexp='^#PasswordAuthentication.+$' backrefs=yes
+      line='PasswordAuthentication no'
+      backup=yes
+
+- name: Reboot the linode
+  command: shutdown -r now "Ansible updates triggered"
+  async: 0
+  poll: 0
+  ignore_errors: true

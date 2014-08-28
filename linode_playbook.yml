@@ -1,0 +1,21 @@
+---
+
+# Prepares a linode so that it's ready for provisioning
+# By default Linode provides a root login with password and no firewall
+
+# To create a password hash: python -c "from passlib.hash import sha512_crypt; print sha512_crypt.encrypt('your-password')"
+
+# To run this playbook against a linode: ansible-playbook linode_playbook.yml -i hosts --ask-pass
+
+- name: Prepare a Linode for provisioning
+  hosts: linode
+  gather_facts: yes
+  remote_user: root
+
+  vars:
+    - hostname: new_hostname
+    - ssh_user: new_ssh_user
+    - ssh_user_password_hash: ssh_user_password_hash
+
+  roles:
+    - linode
